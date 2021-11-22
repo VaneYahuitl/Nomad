@@ -1,0 +1,186 @@
+#Las pruebas estadísticas se ajustarán al tipo de datos que tengamos
+#ALDEx solo trabaja con tipos de datos enteros, por tanto se introducen valores de Counts 
+#Vamos a llamar a la paquetería que nos va a permitir leer archivos de tipo ".csv"
+#Llamamos a ALDEx2 para normalizar mis datos
+library(readr)  
+library(ALDEx2)
+library(textshape)
+#Mi Dataframe debe tener
+#index en la primera columna
+# Taxones en la primera fila 
+#Debe ser una tabla de Counts para ambos tratamientos, residuo y Control 
+# OTU.ID     B1BRD0 B1ARD0 B2BRD0 B2ARD0 B2ACD0
+# Bacteria     10      0      0      0      2
+# Acidobacteria    318    135    159     21    125
+# Actinobacteria    350    219    314     52    262
+# Armatimonadetes      0      0      0      0      0
+# BRC1      0      0      0      0      0
+# Bacteroidetes     40      0     53      5      0
+
+setwd("~/MiProyecto/MiAnalisis/Taxonomy/MergeTabs/Level2/BATAN/Flats/archivosCSV") 
+#Cargo Bean ambos tipos de Agricultura mezclados "all"
+counts_All <- read.csv("Batan_counts_flats_all.csv", header = TRUE, fileEncoding = 'UTF-8-BOM')
+View(counts_All)
+
+#Necesito colocar mis Rownames
+counts_All<-textshape::column_to_rownames(counts_All, loc = 1)
+
+#Establezco mis Condicionales, los tratamientos que voy a comparar por ejemplo 
+
+conds <- c(rep("C", 25), rep("R", 28))
+View(conds)
+
+#Aplico la función .clr para enfoque modular, transformandolos a razones logarítmicas
+#Se reocmienda un valor de 128 en Monte carlo Samples para un álculo riguroso del tamaño del efecto
+#del tratamiento medido, al menos 16 para caso de anovas
+x <- aldex.clr(data_cp_b, conds, mc.samples=128, denom="all", verbose=FALSE)
+View(x)
+
+#a los resultados de la tabla "X" se les pueden aplicar pruebas estadísticas 
+#Prueba Kruskal wallis
+x.kw <- aldex.kw(x)
+View(x.kw)
+#Voy guardando todo 
+write.table(x.kw, "kRUSKALWALLIS_BATAN_COUNTS.txt", sep = "\t")
+
+
+
+#pRUEBA t de Student
+counts.tt <- aldex.ttest(x,conds, paired.test=FALSE, verbose=FALSE)
+View(counts.tt)
+write.table(counts.tt, "ttest_BATAN_COUNTS.txt", sep = "\t")
+
+
+#Tamaño del efecto
+x.effect_batan <- aldex.effect(x, CI=T, verbose=FALSE)
+View(x.effect_batan)
+write.table(x.effect_batan, "efecto_BATAN_COUNTS.txt", sep = "\t")
+
+
+#Puedes plotear el tamaño del efecto
+par(mfrow=c(1,2))
+aldex.plot(x_all, type="MA", test="welch")
+aldex.plot(x_all, type="MW", test="welch") 
+
+
+#Fusionar en un dataframe  varias pruebas (counts.tt y x_test es la misma)
+x_all <- data.frame(x.effect_batan, x.kw, counts.tt, x_test)
+View(x_all)
+
+#Encontrar los valores significativos menor o igual que ..."<="
+x_ss <- subset(x_all, wi.eBH <= 0.05, kwi.ebH <= 0.05)  
+View(x_ss)
+write.table(x_ss, "effect_size_aldex_BATAN_COUNTS.txt", sep = "\t")
+
+#Encontrar los no significativos 
+x_ns <- subset(x_all, wi.eBH > 0.05)
+View(x_ns)
+
+
+#ENCUENTRA LOS VALORES SIGNIFICATIVOS PARA TODAS LAS PRUEBAS QUE SE HICIERON 
+found.by.all <- which(x_all$we.eBH < 0.05 &
+                        + x_all$wi.eBH < 0.05 & x_all$kw.eBH < 0.05)
+View(found.by.all)
+# plot the within and between variation of the data
+plot(x_all$diff.win, x_all$diff.btw, pch=19, cex=0.3, col=rgb(0,0,0,0.3),
+       + xlab="Difference within", ylab="Difference betweenn")
+points(x_all$diff.win[found.by.all], x_all$diff.btw[found.by.all], pch=19,
+         + cex=0.5, col=rgb(0,0,1,0.5))
+points(x_all$diff.win[found.by.all], x_all$diff.btw[found.by.all], pch=19,
+         + cex=0.5, col=rgb(1,0,0,1))
+abline(0,1,lty=2)
+abline(0,-1,lty=2)
+
+
+plot(x_ns$effect, x_ns$wi.eBH, cex=0.7, pch=19, col = "grey50", xlab="Effect size", ylab="P value", main="Bean vs NoBean", ylim=c(0,1), xlim=c(-1.5,1.5))
+points(x_ss$effect, x_ss$wi.eBH, cex=0.7, pch=19, col = "red")
+abline(h=0.05, lty=5, lwd =2 ,col="goldenrod3")
+
+#Verificar comando para guardar el plot porque no me salió
+savePlot(filename = plot_effect, type = c("png"), device = dev.cur())
+
+
+###################
+######Vamos a probar Size effect para Chinampa
+library(readr)  
+library(ALDEx2)
+library(textshape)
+
+setwd("~/MiProyecto/MiAnalisis/Taxonomy/MergeTabs/Level6")
+
+counts_All_chinampa <- read.csv("chinampa_counts_l6.csv", header = TRUE, fileEncoding = 'UTF-8-BOM')
+View(counts_All_chinampa)
+
+#Necesito colocar mis Rownames
+counts_All_chinampa<-textshape::column_to_rownames(counts_All_chinampa, loc = 1)
+
+#Establezco mis Condicionales, los tratamientos que voy a comparar por ejemplo 
+
+conds_b <- c(rep("C", 19), rep("R", 21))
+#View(conds_b)
+
+#Aplico la función .clr para enfoque modular, transformandolos a razones logarítmicas
+#Se reocmienda un valor de 128 en Monte carlo Samples para un álculo riguroso del tamaño del efecto
+#del tratamiento medido, al menos 16 para caso de anovas
+    x_c <- aldex.clr(counts_All_chinampa, conds_b, mc.samples=999, denom="all", verbose=FALSE)
+View(x_c)
+
+#a los resultados de la tabla "X" se les pueden aplicar pruebas estadísticas 
+#Prueba Kruskal wallis
+x_kw_chinampa <- aldex.kw(x_c)
+View(x_kw_chinampa)
+#Voy guardando todo 
+write.table(x_kw_chinampa, "kRUSKALWALLIS_chinampa_COUNTS_all.tsv", sep = "\t")
+
+#pRUEBA t de Student
+counts_tt_chinampa <- aldex.ttest(x_c,conds_b, paired.test=FALSE, verbose=FALSE)
+View(counts_tt_chinampa)
+write.table(counts_tt_chinampa, "ttest_chinampa_COUNTS_all_l6.tsv", sep = "\t")
+
+
+#Tamaño del efecto
+x.effect_chinampa <- aldex.effect(x_c, CI=T, verbose=FALSE)
+View(x.effect_chinampa)
+write.table(x.effect_chinampa, "efecto_chinampa_COUNTS_all_l6.txt", sep = "\t")
+
+
+
+#Fusionar en un dataframe  varias pruebas (counts.tt y x_test es la misma)
+x_all_c <- data.frame(x.effect_chinampa, x_kw_chinampa, counts_tt_chinampa)
+View(x_all_c)
+write.table(x_all_c, "all_test_chinampa_COUNTS_all.txt", sep = "\t")
+
+
+#Puedes plotear el tamaño del efecto
+par(mfrow=c(1,2))
+aldex.plot(x_all_c, type="MA", test="welch")
+aldex.plot(x_all_c, type="MW", test="welch") 
+
+#Encontrar los valores significativos menor o igual que ..."<="
+x_ss_c <- subset(x_all_c, wi.eBH <= 0.05)  
+View(x_ss_c)
+write.table(x_ss_c, "significant_chinampa_COUNTS_all.txt", sep = "\t")
+
+#Encontrar los no significativos 
+x_ns_c <- subset(x_all_c, wi.eBH > 0.05)
+View(x_ns_c)
+
+
+#ENCUENTRA LOS VALORES SIGNIFICATIVOS PARA TODAS LAS PRUEBAS QUE SE HICIERON 
+found.by.all <- which(x_all_c$we.eBH < 0.05 &
+                        + x_all_c$wi.eBH < 0.05 & x_all_c$kw.eBH < 0.05)
+View(found.by.all)
+# plot the within and between variation of the data
+plot(x_all_c$diff.win, x_all_c$diff.btw, pch=19, cex=0.3, col=rgb(0,0,0,0.3),
+     + xlab="Difference within", ylab="Difference between")
+points(x_all_c$diff.win[found.by.all], x_all_c$diff.btw[found.by.all], pch=19,
+       + cex=0.5, col=rgb(0,0,1,0.5))
+points(x_all_c$diff.win[found.by.all], x_all_c$diff.btw[found.by.all], pch=19,
+       + cex=0.5, col=rgb(1,0,0,1))
+abline(0,1,lty=2)
+abline(0,-1,lty=2)
+
+
+plot(x_ns_c$effect, x_ns_c$wi.eBH, cex=0.7, pch=19, col = "black", xlab="Effect size", ylab="P value", main="Chinampa Bean residue effect", ylim=c(0,1), xlim=c(-1.5,1.5))
+points(x_ss_c$effect, x_ss_c$wi.eBH, cex=0.7, pch=19, col = "red")
+abline(h=0.05, lty=5, lwd =2 ,col="goldenrod3")
